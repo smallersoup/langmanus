@@ -10,6 +10,8 @@ services:
       - "8000:8000"
     environment:
       - CHROME_HEADLESS=True
+    env_file:
+      - .env
     restart: unless-stopped
     networks:
       - langmanus-network
