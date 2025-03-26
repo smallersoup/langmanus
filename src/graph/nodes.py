@@ -143,16 +143,9 @@ def planner_node(state: State) -> Command[Literal["supervisor", "__end__"]]:
     logger.debug(f"Current state messages: {state['messages']}")
     logger.debug(f"Planner response: {full_response}")
 
-    if full_response.startswith("```json"):
-        full_response = full_response.removeprefix("```json")
-
-    if full_response.endswith("```"):
-        full_response = full_response.removesuffix("```")
-
     goto = "supervisor"
     try:
-        repaired_response = json_repair.loads(full_response)
-        full_response = json.dumps(repaired_response)
+        full_response = repair_json_output(full_response)
     except json.JSONDecodeError:
         logger.warning("Planner response is not a valid JSON")
         goto = "__end__"
