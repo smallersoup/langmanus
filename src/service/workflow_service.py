@@ -39,6 +39,7 @@ async def run_agent_workflow(
     deep_thinking_mode: Optional[bool] = False,
     search_before_planning: Optional[bool] = False,
     team_members: Optional[list] = None,
+    thread_id: Optional[str] = "default",
 ):
     """Run the agent workflow to process and respond to user input messages.
 
@@ -55,6 +56,8 @@ async def run_agent_workflow(
             the execution plan
         team_members: Optional list of specific team members to involve in the workflow.
             If None, uses default TEAM_MEMBERS configuration
+        thread_id: Optional string identifier for maintaining conversation context.
+            If not provided, defaults to "default"
 
     Returns:
         Yields various event dictionaries containing workflow state and progress information,
@@ -89,10 +92,13 @@ async def run_agent_workflow(
                 "TEAM_MEMBERS": team_members,
                 "TEAM_MEMBER_CONFIGRATIONS": TEAM_MEMBER_CONFIGRATIONS,
                 # Runtime Variables
-                "messages": user_input_messages,
+                # TODO: history should be stored in backend, frontend only needs to send the use inputs.
+                "messages": [user_input_messages[-1]],
                 "deep_thinking_mode": deep_thinking_mode,
                 "search_before_planning": search_before_planning,
             },
+            # client could send this param to talk with a specific thread.
+            config={"configurable": {"thread_id": thread_id}},
             version="v2",
         ):
             kind, data, name, node, langgraph_step, run_id = _extract_event_data(event)
