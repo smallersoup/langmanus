@@ -27,8 +27,6 @@ logger = logging.getLogger(__name__)
 # Create the graph
 graph = build_graph()
 
-MAX_CACHE_SIZE = 3
-
 # Global variable to track current browser tool instance
 current_browser_tool: Optional[browser_tool] = None
 
@@ -79,11 +77,9 @@ async def run_agent_workflow(
 
     team_members = team_members if team_members else TEAM_MEMBERS
 
-    # Reset coordinator cache at the start of each workflow
+    # Reset flag at the start of each workflow
     is_workflow_triggered = False
     last_event_data = None
-    coordinator_cache = []
-    is_handoff_case = False
 
     try:
         async for event in graph.astream_events(
@@ -115,8 +111,6 @@ async def run_agent_workflow(
                 run_id,
                 user_input_messages,
                 team_members,
-                coordinator_cache,
-                is_handoff_case,
             ):
                 if ydata:
                     if ydata.get("event") == "start_of_workflow":
@@ -170,8 +164,6 @@ def _process_event(
     run_id: str,
     user_input_messages: List[Dict[str, Any]],
     team_members: Optional[List[str]],
-    coordinator_cache: List[str],
-    is_handoff_case: bool,
 ) -> Generator[Dict[str, Any], None, None]:
     """Process events and return corresponding output data"""
     # Handle chain start events
@@ -194,9 +186,7 @@ def _process_event(
 
     # Handle chat model stream events
     elif kind == EventType.CHAT_MODEL_STREAM.value and node in STREAMING_LLM_AGENTS:
-        yield from _handle_chat_model_stream(
-            data, node, is_handoff_case, coordinator_cache
-        )
+        yield from _handle_chat_model_stream(data, node)
 
     # Handle tool start events
     elif kind == EventType.TOOL_START.value and node in team_members:
@@ -262,7 +252,7 @@ def _handle_chat_model_end(node: str) -> Generator[Dict[str, Any], None, None]:
 
 
 def _handle_chat_model_stream(
-    data: Dict[str, Any], node: str, is_handoff_case: bool, coordinator_cache: List[str]
+    data: Dict[str, Any], node: str
 ) -> Generator[Dict[str, Any], None, None]:
     """Handle chat model stream events"""
 
@@ -286,20 +276,14 @@ def _handle_chat_model_stream(
         }
         return
 
-    # Handle coordinator messages
-    if node == "coordinator":
-        yield from _handle_coordinator_message(
-            data, content, is_handoff_case, coordinator_cache
-        )
-    else:
-        # Handle messages from other agents
-        yield {
-            "event": "message",
-            "data": {
-                "message_id": data["chunk"].id,
-                "delta": {"content": content},
-            },
-        }
+    # Handle messages from other agents
+    yield {
+        "event": "message",
+        "data": {
+            "message_id": data["chunk"].id,
+            "delta": {"content": content},
+        },
+    }
 
 
 def _handle_tool_start(node, name, data, workflow_id, run_id):
@@ -345,44 +329,3 @@ def _generate_final_events(
             ],
         },
     }
-
-
-def _handle_coordinator_message(
-    data: Dict[str, Any],
-    content: str,
-    is_handoff_case: bool,
-    coordinator_cache: List[str],
-) -> Generator[Dict[str, Any], None, None]:
-    """Handle coordinator messages"""
-    # Cache not full, continue caching
-    if len(coordinator_cache) < MAX_CACHE_SIZE:
-        coordinator_cache.append(content)
-        cached_content = "".join(coordinator_cache)
-
-        # Check if it's a handoff case
-        if cached_content.startswith("handoff"):
-            is_handoff_case = True
-            return
-
-        # Cache not full, continue waiting
-        if len(coordinator_cache) < MAX_CACHE_SIZE:
-            return
-
-        # Cache full, send cached message
-        yield {
-            "event": "message",
-            "data": {
-                "message_id": data["chunk"].id,
-                "delta": {"content": cached_content},
-            },
-        }
-
-    # Cache full and not a handoff case, send message directly
-    elif not is_handoff_case:
-        yield {
-            "event": "message",
-            "data": {
-                "message_id": data["chunk"].id,
-                "delta": {"content": content},
-            },
-        }
