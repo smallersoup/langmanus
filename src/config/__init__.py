@@ -39,7 +39,7 @@ TEAM_MEMBER_CONFIGRATIONS = {
             "Uses search engines and web crawlers to gather information from the internet. "
             "Outputs a Markdown report summarizing findings. Researcher can not do math or programming."
         ),
-        "is_optional": False,
+        "is_optional": True,
     },
     "coder": {
         "name": "coder",
@@ -67,7 +67,7 @@ TEAM_MEMBER_CONFIGRATIONS = {
             "Responsible for summarizing analysis results, generating reports and presenting final outcomes to users"
         ),
         "desc_for_llm": "Write a professional report based on the result of each step.",
-        "is_optional": False,
+        "is_optional": True,
     },
 }
 
